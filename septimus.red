@@ -54,8 +54,9 @@ loadImage:  does [
 		extractFlirData flirFile tempBlk				;--Flir extracted temperatures from pgm image
 		imgIR: load tmpFile								;--Flir image
 		canvas1/image: imgIR							;--Flir orginal IR image
-		canvas2/image: load to-file rgbimg				;--embbeded RGB image
-		clear canvas2/text								;--no more comment
+		imgRGB: load to-red-file rgbimg					;--embbeded RGB image
+		canvas2/image: imgRGB							;--embbeded RGB image			
+		clear canvas2/text								;--clear
 		rawW: RawThermalImageWidth						;--x raw size
 		rawH: RawThermalImageHeight						;--y raw size
 		roiW: rect/size/x 								;--roi size x
@@ -63,7 +64,9 @@ loadImage:  does [
 		nPixels: rawW * rawH							;--raw image size
 		ratio: irSize/x / rawW							;--update ratio value
 		size1/text: form imgIR/size						;--IR image size
-		size2/text: form as-pair EmbeddedImageWidth EmbeddedImageHeight ;--RGB image size
+		rgbw: EmbeddedImageWidth						;--rgb image width
+		rgbh: EmbeddedImageHeight						;--rgb image height
+		size2/text: form as-pair rgbw rgbh 				;--RGB image size
 		size3/text: form as-pair rawW rawH				;--raw image size
 		fratio/text: form ratio							;--show ratio
 		cModel/text: CameraModel						;--camera type
@@ -76,6 +79,7 @@ loadImage:  does [
 		tmpV/font/color: acolor							;--default color
 		upDateClip										;--by default we process the whole raw image
 		fho2/text: form as-pair rawW rawH				;--update
+		clear sb/text									;--clear status bar
 		isFile?: true									;--we have an IR file
 	]
 ]
@@ -112,10 +116,29 @@ getHotSpot: func [
 		]
 		y: y + 1
 	]
-	p1/offset: posxy * ratio + canvas1/offset - 20		;--Update cross offset
-	tValue: round/to pick tempBlk idx 0.01				;--Get hot spot value
-	tmpV/text: rejoin [form tValue " °"]				;--Show hot spot value
+	p1/offset: posxy * ratio + canvas1/offset - 20		;--update cross offset
+	tValue: round/to pick tempBlk idx 0.01				;--get hot spot value
+	tmpV/text: rejoin [form tValue " °"]				;--show hot spot value
+	;--copy results to the clipboard
+	result: rejoin [
+		"Area offset: " form rect/offset " "
+		"Area size: " form rect/size " "
+		"Hot spot position: " form p1/offset " " 
+		"Hot spot value: " tValue "°"
+	]
+	write-clipboard form result
+	sb/text: result
 ]
+
+resizeImage: routine [
+"Resizes image"
+	src 	[image!] 
+	iSize 	[pair!] 
+	return: [image!]
+][
+	as red-image! stack/set-last as cell! image/resize src iSize/x iSize/y
+]
+
 
 ;**************************** Main Program *****************************
 mainWin: layout [
@@ -149,8 +172,10 @@ mainWin: layout [
 	text 40 "Height" fh: field 40
 	text 10 "X"  fwo: field 50
 	text 10 "Y"  fho: field 50
-	text "Start" 40 fwo2: field 50
-	text "End" 40 fho2: field 50
+	text "Start" 35 fwo2: field 60
+	text "End" 30 fho2: field 60
+	;pad 5x0 
+	sb: field 640
 	return
 	canvas1: base irSize %septimus.jpg
 	canvas2: base irSize green
@@ -168,6 +193,7 @@ mainWin: layout [
 		]
 		tmpV/text: rejoin [form tValue " °"]]
 	]
+
 	at padder tmpV: h2 150 "0.0 °" react [face/font/color: acolor]
 	at canvas1/offset + winBorder
 	rect: base 128x128 0.0.0.200 loose on-drag [
