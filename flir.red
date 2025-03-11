@@ -6,7 +6,6 @@ Red [
 ]
 
 ;-- Required files for Flir image processing
-;#include %tmp/exif.red 	;--for decoding Flir image
 #include %default_exif.red 		;--for decoding Flir image
 
 unless exists? %tmp [make-dir %tmp]
@@ -23,15 +22,16 @@ if any [OS = 'MSDOS OS = 'Windows][exifTool: "exiftool" convertTool: "magick"]
 exifFile:  %tmp/exif.txt
 exifFile2: %tmp/exif.red
 
-;--get all Flir file metadata
+;--get all Flir file metadata. This function must be called before extractFlirData
+;--the function generate a Red file with all Flir informations
 getFlirMetaData: func [
 	fileName	[string!]
 ][
 	prog: copy rejoin [exifTool " -php -flir:all -q " fileName " > " exifFile]
-	ret: call/shell/wait prog
+	ret: call/shell/wait prog			;--get Flir metadata
 	var: read/lines exifFile
 	n: length? var
-	i: 2
+	i: 2								;--create a Red file
 	write/lines exifFile2 "Red ["
 	write/lines/append exifFile2 "]"
 	while [i < n] [
@@ -41,12 +41,12 @@ getFlirMetaData: func [
 		s: trim/with s #"^""
 		v: set to-word s ss/2 
 		vs: rejoin [s ": " ss/2]
-		write/lines/append exifFile2 vs
+		write/lines/append exifFile2 vs	;write values in Red File
 		i: i + 1
 	]
 ]
 
-;--all data we need
+;--all data we need. Values are coming from generated Red file (exifFile2.red) 
 extractFlirData: func [
 	fileName	[string!]
 	tblock		[block!]
@@ -140,7 +140,7 @@ extractFlirData: func [
 	;sMin: ImageTemperatureMin
 	sDelta: sMax - sMin
 	
-	;--string form for creating mathExp as argument for convert
+	;--string form for creating mathExp as argument for magick conversion
 	R1: form PlanckR1
 	R2: form PlanckR2
 	B: 	form PlanckB
@@ -160,7 +160,7 @@ extractFlirData: func [
 	returnVal: returnVal + ret 
 	
 	;--export temperatures as float values in a block
-	img: load to-file tempimg
+	img: load to-file tempimg	;--a pgm image
 	delta: imgMaxTemp - imgMinTemp
 	colorMax: to-integer img/4 ; 65535 for 16-bit 255 for 8-bit
 	n: length? img
